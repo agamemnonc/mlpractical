@@ -57,6 +57,7 @@ class MNISTDataProvider(DataProvider):
     The class iterates over MNIST digits dataset, in possibly
     random order.
     """
+    #max_num_examples is the total number of examples across batches.
     def __init__(self, dset,
                  batch_size=10,
                  max_num_examples=-1,
@@ -117,11 +118,12 @@ class MNISTDataProvider(DataProvider):
 
         self._curr_idx += self.batch_size
 
-        #return rval_x, self.__to_one_of_k(rval_y)
-        return rval_x, rval_t
+        return rval_x, self.__to_one_of_k(rval_y)
+        #return rval_x, rval_t
 
-    def __to_one_of_k(self, y):
-        raise NotImplementedError('Write me!')
+    def __to_one_of_k(self, y=10):
+        ook = numpy.zeros()
+        
 
 
 class FuncDataProvider(DataProvider):
