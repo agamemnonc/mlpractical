@@ -115,14 +115,17 @@ class MNISTDataProvider(DataProvider):
 
         rval_x = self.x[range_idx]
         rval_t = self.t[range_idx]
+        rval_y = self.__to_one_of_k(rval_t)
 
         self._curr_idx += self.batch_size
 
-        return rval_x, self.__to_one_of_k(rval_y)
+        return rval_x, rval_y # Return 1-of-K encoding
         #return rval_x, rval_t
 
-    def __to_one_of_k(self, y=10):
-        ook = numpy.zeros()
+    def __to_one_of_k(self, rval_t):
+        ook = numpy.zeros((self.num_classes,1), dtype = numpy.int8)
+        ook[rval_t] = 1
+        return ook
         
 
 
