@@ -6,6 +6,7 @@ import cPickle
 import gzip
 import numpy
 import os
+import cv
 
 
 class DataProvider(object):
@@ -127,7 +128,78 @@ class MNISTDataProvider(DataProvider):
         ook[rval_t] = 1
         return ook
         
+class METOfficeDataProvider(DataProvider):
+    """
+    The class iterates over MET Office data, in possibly
+    random order.
+    """
+    #max_num_examples is the total number of examples across batches.
+    def __init__(self, dset,
+                 batch_size=10,
+                 max_num_examples=-1,
+                 randomize=True):
 
+        super(MNISTDataProvider, self).\
+            __init__(batch_size, randomize)
+
+        data_meteo_raw = [];
+        with open('./data/HadSSP_daily_qc.txt', 'rb') as csvfile:
+            data_meteo_reader = csv.reader(csvfile, delimiter=' ', quotechar='|', skipinitialspace=True)
+            for row in data_meteo_reader:
+                data_meteo_raw.append(row)
+        
+        # Get rid of empty elements
+        for ii in range(numpy.shape(data_meteo)[0]):
+            data_meteo[ii] = filter(None, data_meteo[ii])
+            
+        # Get rid of headers
+        data_meteo = data_meteo[3:]
+        
+        # Convert to numpy array
+        data_meteo_np = numpy.array(data_meteo)
+        
+        
+        self._max_num_examples = max_num_examples
+        self.x = x
+        self.t = t
+        self.num_classes = 10
+
+        self._rand_idx = None
+        if self.randomize:
+            self._rand_idx = self.__randomize()
+
+    def reset(self):
+        super(MNISTDataProvider, self).reset()
+        if self.randomize:
+            self._rand_idx = self.__randomize()
+
+    def __randomize(self):
+        assert isinstance(self.x, numpy.ndarray)
+        return numpy.random.permute(numpy.arange(0, self.x.shape[0]))
+
+    def next(self):
+        
+        has_enough = (self._curr_idx + self.batch_size) <= self.x.shape[0]
+        presented_max = (self._max_num_examples > 0 and
+                         self._curr_idx + self.batch_size > self._max_num_examples)
+
+        if not has_enough or presented_max:
+            raise StopIteration()
+
+        if self._rand_idx is not None:
+            range_idx = \
+                self._rand_idx[self._curr_idx:self._curr_idx + self.batch_size]
+        else:
+            range_idx = \
+                numpy.arange(self._curr_idx, self._curr_idx + self.batch_size)
+
+        rval_x = self.x[range_idx]
+        rval_t = self.t[range_idx]
+        rval_y = self.__to_one_of_k(rval_t)
+
+        self._curr_idx += self.batch_size
+
+        return rval_x, rval_y # Return 1-of-K encoding
 
 class FuncDataProvider(DataProvider):
     """
