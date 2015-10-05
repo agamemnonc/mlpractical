@@ -198,7 +198,7 @@ class MetOfficeDataProvider(DataProvider):
     def next(self):
         
         has_enough = (self._curr_idx + self.batch_size) <= self.x.shape[0]
-        presented_max = (0 < self._max_num_batches-1 < (self._curr_idx / self.batch_size))
+        presented_max = (0 < self._max_num_batches < (self._curr_idx / self.batch_size))
 
         if not has_enough or presented_max:
             raise StopIteration()
