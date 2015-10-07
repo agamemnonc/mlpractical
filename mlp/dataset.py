@@ -125,11 +125,7 @@ class MNISTDataProvider(DataProvider):
     def next(self):
 
         has_enough = (self._curr_idx + self.batch_size) <= self.x.shape[0]
-<<<<<<< HEAD
-        presented_max = (0 < self._max_num_batches-1 < (self._curr_idx / self.batch_size))
-=======
         presented_max = (0 < self._max_num_batches <= (self._curr_idx / self.batch_size))
->>>>>>> 0d513fb0f3c5d77f6905f5572372ea47adf4512a
 
         if not has_enough or presented_max:
             raise StopIteration()
@@ -178,16 +174,14 @@ class MetOfficeDataProvider(DataProvider):
             "File %s was expected to exist!." % dset_path
         )
 
-<<<<<<< HEAD
         raw = numpy.loadtxt(dset_path, skiprows=3, usecols=range(2, 32)) # Omit month and day, so we only have raw measurements (also omit first 3 rows with headers)
-=======
+
         if max_num_batches > 0 and max_num_examples > 0:
             logger.warning("You have specified both 'max_num_batches' and " \
                   "a deprecead 'max_num_examples' arguments. We will " \
                   "use the former over the latter.")
         
         raw = numpy.loadtxt(dset_path, skiprows=3, usecols=range(2, 32))
->>>>>>> 0d513fb0f3c5d77f6905f5572372ea47adf4512a
         
         self.window_size = window_size
         self._max_num_batches = max_num_batches
@@ -230,15 +224,10 @@ class MetOfficeDataProvider(DataProvider):
         return numpy.random.permutation(numpy.arange(self.window_size, self.x.shape[0]))
 
     def next(self):
-<<<<<<< HEAD
-        
-        has_enough = (self._curr_idx + self.batch_size) <= self.x.shape[0]
-        presented_max = (0 < self._max_num_batches-1 < (self._curr_idx / self.batch_size))
-=======
+
 
         has_enough = (self.window_size + self._curr_idx + self.batch_size) <= self.x.shape[0]
         presented_max = (0 < self._max_num_batches <= (self._curr_idx / self.batch_size))
->>>>>>> 0d513fb0f3c5d77f6905f5572372ea47adf4512a
 
         if not has_enough or presented_max:
             raise StopIteration()
