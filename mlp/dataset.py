@@ -123,7 +123,7 @@ class MNISTDataProvider(DataProvider):
         return numpy.random.permutation(numpy.arange(0, self.x.shape[0]))
 
     def next(self):
-
+        print (self._curr_idx / self.batch_size)
         has_enough = (self._curr_idx + self.batch_size) <= self.x.shape[0]
         presented_max = (0 < self._max_num_batches <= (self._curr_idx / self.batch_size))
 
@@ -175,7 +175,10 @@ class MetOfficeDataProvider(DataProvider):
         )
 
         raw = numpy.loadtxt(dset_path, skiprows=3, usecols=range(2, 32)) # Omit month and day, so we only have raw measurements (also omit first 3 rows with headers)
-
+        if max_num_batches > 0 and max_num_examples > 0:
+        logger.warning("You have specified both 'max_num_batches' and " \
+            "a deprecead 'max_num_examples' arguments. We will " \
+                  "use the former over the latter.")
         if max_num_batches > 0 and max_num_examples > 0:
             logger.warning("You have specified both 'max_num_batches' and " \
                   "a deprecead 'max_num_examples' arguments. We will " \
@@ -224,7 +227,6 @@ class MetOfficeDataProvider(DataProvider):
         return numpy.random.permutation(numpy.arange(self.window_size, self.x.shape[0]))
 
     def next(self):
-
 
         has_enough = (self.window_size + self._curr_idx + self.batch_size) <= self.x.shape[0]
         presented_max = (0 < self._max_num_batches <= (self._curr_idx / self.batch_size))
