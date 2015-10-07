@@ -6,6 +6,10 @@ import cPickle
 import gzip
 import numpy
 import os
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class DataProvider(object):
@@ -67,6 +71,7 @@ class MNISTDataProvider(DataProvider):
     def __init__(self, dset,
                  batch_size=10,
                  max_num_batches=-1,
+                 max_num_examples=-1,
                  randomize=True):
 
         super(MNISTDataProvider, self).\
@@ -80,6 +85,11 @@ class MNISTDataProvider(DataProvider):
         assert max_num_batches != 0, (
             "max_num_batches should be != 0"
         )
+        
+        if max_num_batches > 0 and max_num_examples > 0:
+            logger.warning("You have specified both 'max_num_batches' and " \
+                  "a deprecead 'max_num_examples' arguments. We will " \
+                  "use the former over the latter.")
 
         dset_path = './data/mnist_%s.pkl.gz' % dset
         assert os.path.isfile(dset_path), (
@@ -90,6 +100,11 @@ class MNISTDataProvider(DataProvider):
             x, t = cPickle.load(f)
 
         self._max_num_batches = max_num_batches
+        #max_num_examples arg was provided for backward compatibility
+        #but it maps us to the max_num_batches anyway
+        if max_num_examples > 0 and max_num_batches < 0:
+            self._max_num_batches = max_num_examples / self.batch_size      
+            
         self.x = x
         self.t = t
         self.num_classes = 10
@@ -108,9 +123,13 @@ class MNISTDataProvider(DataProvider):
         return numpy.random.permutation(numpy.arange(0, self.x.shape[0]))
 
     def next(self):
-        
+
         has_enough = (self._curr_idx + self.batch_size) <= self.x.shape[0]
+<<<<<<< HEAD
         presented_max = (0 < self._max_num_batches-1 < (self._curr_idx / self.batch_size))
+=======
+        presented_max = (0 < self._max_num_batches <= (self._curr_idx / self.batch_size))
+>>>>>>> 0d513fb0f3c5d77f6905f5572372ea47adf4512a
 
         if not has_enough or presented_max:
             raise StopIteration()
@@ -148,6 +167,7 @@ class MetOfficeDataProvider(DataProvider):
     def __init__(self, window_size,
                  batch_size=10,
                  max_num_batches=-1,
+                 max_num_examples=-1,
                  randomize=True):
 
         super(MetOfficeDataProvider, self).\
@@ -158,10 +178,24 @@ class MetOfficeDataProvider(DataProvider):
             "File %s was expected to exist!." % dset_path
         )
 
+<<<<<<< HEAD
         raw = numpy.loadtxt(dset_path, skiprows=3, usecols=range(2, 32)) # Omit month and day, so we only have raw measurements (also omit first 3 rows with headers)
+=======
+        if max_num_batches > 0 and max_num_examples > 0:
+            logger.warning("You have specified both 'max_num_batches' and " \
+                  "a deprecead 'max_num_examples' arguments. We will " \
+                  "use the former over the latter.")
+        
+        raw = numpy.loadtxt(dset_path, skiprows=3, usecols=range(2, 32))
+>>>>>>> 0d513fb0f3c5d77f6905f5572372ea47adf4512a
         
         self.window_size = window_size
         self._max_num_batches = max_num_batches
+        #max_num_examples arg was provided for backward compatibility
+        #but it maps us to the max_num_batches anyway
+        if max_num_examples > 0 and max_num_batches < 0:
+            self._max_num_batches = max_num_examples / self.batch_size       
+        
         #filter out all missing datapoints and
         #flatten a matrix to a vector, so we will get
         #a time preserving representation of measurments
@@ -196,9 +230,15 @@ class MetOfficeDataProvider(DataProvider):
         return numpy.random.permutation(numpy.arange(self.window_size, self.x.shape[0]))
 
     def next(self):
+<<<<<<< HEAD
         
         has_enough = (self._curr_idx + self.batch_size) <= self.x.shape[0]
         presented_max = (0 < self._max_num_batches-1 < (self._curr_idx / self.batch_size))
+=======
+
+        has_enough = (self.window_size + self._curr_idx + self.batch_size) <= self.x.shape[0]
+        presented_max = (0 < self._max_num_batches <= (self._curr_idx / self.batch_size))
+>>>>>>> 0d513fb0f3c5d77f6905f5572372ea47adf4512a
 
         if not has_enough or presented_max:
             raise StopIteration()
@@ -208,7 +248,8 @@ class MetOfficeDataProvider(DataProvider):
                 self._rand_idx[self._curr_idx:self._curr_idx + self.batch_size]
         else:
             range_idx = \
-                numpy.arange(self._curr_idx, self._curr_idx + self.batch_size)
+                numpy.arange(self.window_size + self._curr_idx, 
+                             self.window_size + self._curr_idx + self.batch_size)
 
         #build slicing matrix of size minibatch, which will contain batch_size
         #rows, each keeping indexes that selects windows_size+1 [for (x,t)] elements
@@ -221,7 +262,7 @@ class MetOfficeDataProvider(DataProvider):
                              range_idx[i] - self.window_size - 1, 
                              -1,
                              dtype=numpy.int32)[::-1]
-        
+
         #here we use advanced indexing to select slices from observation vector
         #last column of rval_x makes our targets t (as we splice window_size + 1
         tmp_x = self.x[range_slices]
