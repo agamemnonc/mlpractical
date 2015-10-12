@@ -200,6 +200,9 @@ class MetOfficeDataProvider(DataProvider):
         #normalise data to zero mean, unit variance
         mean = numpy.mean(self.x)
         var = numpy.var(self.x)
+        self._mean = mean
+        self._variance = var
+        
         assert var >= 0.01, (
             "Variance too small %f " % var
         )
@@ -262,6 +265,50 @@ class MetOfficeDataProvider(DataProvider):
 
         return rval_x, rval_t
 
+class MetOfficeDataProviderBin(MetOfficeDataProvider):
+    
+    def next(self):
+
+        has_enough = (self.window_size + self._curr_idx + self.batch_size) <= self.x.shape[0]
+        presented_max = (0 < self._max_num_batches <= (self._curr_idx / self.batch_size))
+
+        if not has_enough or presented_max:
+            raise StopIteration()
+
+        if self._rand_idx is not None:
+            range_idx = \
+                self._rand_idx[self._curr_idx:self._curr_idx + self.batch_size]
+        else:
+            range_idx = \
+                numpy.arange(self.window_size + self._curr_idx, 
+                             self.window_size + self._curr_idx + self.batch_size)
+
+        #build slicing matrix of size minibatch, which will contain batch_size
+        #rows, each keeping indexes that selects windows_size+1 [for (x,t)] elements
+        #from data vector (self.x) that itself stays always sorted w.r.t time
+        range_slices = numpy.zeros((self.batch_size, self.window_size + 1), dtype=numpy.int32)
+       
+        for i in xrange(0, self.batch_size):
+            range_slices[i, :] = \
+                numpy.arange(range_idx[i], 
+                             range_idx[i] - self.window_size - 1, 
+                             -1,
+                             dtype=numpy.int32)[::-1]
+
+        #here we use advanced indexing to select slices from observation vector
+        #last column of rval_x makes our targets t (as we splice window_size + 1
+        tmp_x = self.x[range_slices]
+        rval_x = tmp_x[:,:-1]
+        rval_t = tmp_x[:,-1].reshape(self.batch_size, -1) # numeric
+        rval_t_rec = (rval_t * self._variance) + self._mean
+        rval_t_binary = numpy.zeros_like(rval_t_rec)
+        rval_t_binary[rval_t_rec != 0] = 1
+        
+        
+        self._curr_idx += self.batch_size
+
+        return rval_x, rval_t_binary
+    
     
 class FuncDataProvider(DataProvider):
     """
