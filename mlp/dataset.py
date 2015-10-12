@@ -1,4 +1,3 @@
-
 # Machine Learning Practical (INFR11119),
 # Pawel Swietojanski, University of Edinburgh
 
@@ -60,13 +59,18 @@ class DataProvider(object):
         """
         raise NotImplementedError()
 
+    def num_examples(self):
+        """
+        Returns a number of data-points in dataset
+        """
+        return NotImplementedError()
+
+
 
 class MNISTDataProvider(DataProvider):
     """
     The class iterates over MNIST digits dataset, in possibly
     random order.
-    batch_size is the number of examples in each batch and 
-    max_num_batches is the number of required batches.
     """
     def __init__(self, dset,
                  batch_size=10,
@@ -123,6 +127,7 @@ class MNISTDataProvider(DataProvider):
         return numpy.random.permutation(numpy.arange(0, self.x.shape[0]))
 
     def next(self):
+
         has_enough = (self._curr_idx + self.batch_size) <= self.x.shape[0]
         presented_max = (0 < self._max_num_batches <= (self._curr_idx / self.batch_size))
 
@@ -143,6 +148,9 @@ class MNISTDataProvider(DataProvider):
 
         return rval_x, self.__to_one_of_k(rval_t)
 
+    def num_examples(self):
+        return self.x.shape[0]
+
     def __to_one_of_k(self, y):
         rval = numpy.zeros((y.shape[0], self.num_classes), dtype=numpy.float32)
         for i in xrange(y.shape[0]):
@@ -153,11 +161,7 @@ class MNISTDataProvider(DataProvider):
 class MetOfficeDataProvider(DataProvider):
     """
     The class iterates over South Scotland Weather, in possibly
-    random order. 
-	Window size is the number of previous measurements taken 
-	into account for a prediction. Maximum number of batches
-	is the number of required batches and batch size is the number
-	of training examples in each batch.
+    random order.
     """
     def __init__(self, window_size,
                  batch_size=10,
@@ -173,13 +177,8 @@ class MetOfficeDataProvider(DataProvider):
             "File %s was expected to exist!." % dset_path
         )
 
-        raw = numpy.loadtxt(dset_path, skiprows=3, usecols=range(2, 32)) # Omit month and day, so we only have raw measurements (also omit first 3 rows with headers)
         if max_num_batches > 0 and max_num_examples > 0:
-                logger.warning("You have specified both 'max_num_batches' and " \
-            "a deprecead 'max_num_examples' arguments. We will " \
-                  "use the former over the latter.")
-        if max_num_batches > 0 and max_num_examples > 0:
-                logger.warning("You have specified both 'max_num_batches' and " \
+            logger.warning("You have specified both 'max_num_batches' and " \
                   "a deprecead 'max_num_examples' arguments. We will " \
                   "use the former over the latter.")
         
@@ -196,15 +195,15 @@ class MetOfficeDataProvider(DataProvider):
         #flatten a matrix to a vector, so we will get
         #a time preserving representation of measurments
         #with self.x[0] being the first day and self.x[-1] the last
-        self.x = raw[raw >= 0].flatten() # Get rid of negative values and flatten to a long vector
+        self.x = raw[raw >= 0].flatten()
         
-        #normalise data to zero mean, unit var
+        #normalise data to zero mean, unit variance
         mean = numpy.mean(self.x)
         var = numpy.var(self.x)
         assert var >= 0.01, (
             "Variance too small %f " % var
         )
-        self.x = (self.x-mean)/var # data whitening
+        self.x = (self.x-mean)/var
         
         self._rand_idx = None
         if self.randomize:
@@ -216,7 +215,7 @@ class MetOfficeDataProvider(DataProvider):
             self._rand_idx = self.__randomize()
 
     def __randomize(self):
-        assert isinstance(self.x, numpy.ndarray) # make sure self.x is a numpy array
+        assert isinstance(self.x, numpy.ndarray)
         # we generate random indexes starting from window_size, i.e. 10th absolute element
         # in the self.x vector, as we later during mini-batch preparation slice
         # the self.x container backwards, i.e. given we want to get a training 
