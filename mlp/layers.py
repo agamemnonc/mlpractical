@@ -9,6 +9,10 @@ from mlp.costs import Cost
 
 logger = logging.getLogger(__name__)
 
+def sigmoid(x):
+    ''' Implements a sigmoid function'''
+    
+    return 1/(1+numpy.exp(-numpy.asarray(x)))
 
 class MLP(object):
     """
@@ -274,8 +278,72 @@ class Linear(Layer):
     def get_name(self):
         return 'linear'
 
+class Sigmoid(Linear):
+
+    def __init__(self, idim, odim,
+                 rng=None,
+                 irange=0.1):
+
+        super(Sigmoid, self).__init__(idim=idim, odim=odim, rng=rng)
+    
+    def fprop(self, inputs):
+        """
+        Implements a forward propagation through the i-th layer, that is
+        some form of:
+           a^i = xW^i + b^i
+           h^i = f^i(a^i)
+        with f^i, W^i, b^i denoting a non-linearity, weight matrix and
+        biases of this (i-th) layer, respectively and x denoting inputs.
+
+        :param inputs: matrix of features (x) or the output of the previous layer h^{i-1}
+        :return: h^i, matrix of transformed by layer features
+        """
+        a = numpy.dot(inputs, self.W) + self.b
+        return sigmoid(a)
+    
+    def bprop(self, h, igrads):
+        """
+        Implements a backward propagation through the layer, that is, given
+        h^i denotes the output of the layer and x^i the input, we compute:
+        dh^i/dx^i which by chain rule is dh^i/da^i da^i/dx^i
+        x^i could be either features (x) or the output of the lower layer h^{i-1}
+        :param h: it's an activation produced in forward pass
+        :param igrads, error signal (or gradient) flowing to the layer, note,
+               this in general case does not corresponds to 'deltas' used to update
+               the layer's parameters, to get deltas ones need to multiply it with
+               the dh^i/da^i derivative
+        :return: a tuple (deltas, ograds) where:
+               deltas = igrads * dh^i/da^i
+               ograds = deltas \times da^i/dx^i
+        """
+
+        ograds = numpy.dot(igrads, self.W.T)
+        deltas = ograds * sigmoid(ograds) * (1-sigmoid(ograds))
+        return deltas, ograds
+
+    def bprop_cost(self, h, igrads, cost):
+        """
+        Implements a backward propagation in case the layer directly
+        deals with the optimised cost (i.e. the top layer)
+        By default, method should implement a bprop for default cost, that is
+        the one that is natural to the layer's output, i.e.:
+        here we implement linear -> mse scenario
+        :param h: it's an activation produced in forward pass
+        :param igrads, error signal (or gradient) flowing to the layer, note,
+               this in general case does not corresponds to 'deltas' used to update
+               the layer's parameters, to get deltas ones need to multiply it with
+               the dh^i/da^i derivative
+        :param cost, mlp.costs.Cost instance defining the used cost
+        :return: a tuple (deltas, ograds) where:
+               deltas = igrads * dh^i/da^i
+               ograds = deltas \times da^i/dx^i
+        """
+
+        if cost is None or cost.get_name() == 'ce':
         
-        
-        
-        
-        
+            deltas, ograds = self.fprop(h, igrads)
+            return deltas, ograds
+        else:
+            raise NotImplementedError('Sigmoid.bprop_cost method not implemented '
+                                      'for the %s cost' % cost.get_name())
+
