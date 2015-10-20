@@ -58,3 +58,5 @@ docs/_build/
 
 # PyBuilder
 target/
+
+mlp/notepad_session
