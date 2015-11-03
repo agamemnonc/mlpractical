@@ -289,7 +289,7 @@ class Sigmoid(Linear):
     
     def fprop(self, inputs):
         #get the linear activations
-        a = super(Sigmoid, self).fprop(inputs)
+        a = super(Sigmoid, self).fprop(inputs) # Inheritate from Linear class
         #stabilise the exp() computation in case some values in
         #'a' get very negative. We limit both tails, however only
         #negative values may lead to numerical issues -- exp(-a)
