@@ -148,7 +148,7 @@ class Layer(object):
 
         raise NotImplementedError()
 
-    def pgrads(self, inputs, deltas):
+    def pgrads(self, inputs, deltas, **kwargs):
         """
         Return gradients w.r.t parameters
         """
@@ -244,12 +244,13 @@ class Linear(Layer):
             raise NotImplementedError('Linear.bprop_cost method not implemented '
                                       'for the %s cost' % cost.get_name())
 
-    def pgrads(self, inputs, deltas):
+    def pgrads(self, inputs, deltas, l1_weight=0, l2_weight=0):
         """
         Return gradients w.r.t parameters
 
         :param inputs, input to the i-th layer
         :param deltas, deltas computed in bprop stage up to -ith layer
+        :param kwargs, key-value optional arguments
         :return list of grads w.r.t parameters dE/dW and dE/db in *exactly*
                 the same order as the params are returned by get_params()
 
@@ -278,72 +279,84 @@ class Linear(Layer):
     def get_name(self):
         return 'linear'
 
-class Sigmoid(Linear):
 
-    def __init__(self, idim, odim,
+class Sigmoid(Linear):
+    def __init__(self,  idim, odim,
                  rng=None,
                  irange=0.1):
 
-        super(Sigmoid, self).__init__(idim=idim, odim=odim, rng=rng)
+        super(Sigmoid, self).__init__(idim, odim, rng, irange)
     
     def fprop(self, inputs):
-        """
-        Implements a forward propagation through the i-th layer, that is
-        some form of:
-           a^i = xW^i + b^i
-           h^i = f^i(a^i)
-        with f^i, W^i, b^i denoting a non-linearity, weight matrix and
-        biases of this (i-th) layer, respectively and x denoting inputs.
-
-        :param inputs: matrix of features (x) or the output of the previous layer h^{i-1}
-        :return: h^i, matrix of transformed by layer features
-        """
-        a = numpy.dot(inputs, self.W) + self.b
-        return sigmoid(a)
+        #get the linear activations
+        a = super(Sigmoid, self).fprop(inputs)
+        #stabilise the exp() computation in case some values in
+        #'a' get very negative. We limit both tails, however only
+        #negative values may lead to numerical issues -- exp(-a)
+        #clip() function does the following operation faster:
+        # a[a < -30.] = -30,
+        # a[a > 30.] = 30.
+        numpy.clip(a, -30.0, 30.0, out=a)
+        h = 1.0/(1 + numpy.exp(-a))
+        return h
     
     def bprop(self, h, igrads):
-        """
-        Implements a backward propagation through the layer, that is, given
-        h^i denotes the output of the layer and x^i the input, we compute:
-        dh^i/dx^i which by chain rule is dh^i/da^i da^i/dx^i
-        x^i could be either features (x) or the output of the lower layer h^{i-1}
-        :param h: it's an activation produced in forward pass
-        :param igrads, error signal (or gradient) flowing to the layer, note,
-               this in general case does not corresponds to 'deltas' used to update
-               the layer's parameters, to get deltas ones need to multiply it with
-               the dh^i/da^i derivative
-        :return: a tuple (deltas, ograds) where:
-               deltas = igrads * dh^i/da^i
-               ograds = deltas \times da^i/dx^i
-        """
-
-        ograds = numpy.dot(igrads, self.W.T)
-        deltas = ograds * sigmoid(ograds) * (1-sigmoid(ograds))
+        dsigm = h * (1.0 - h)
+        deltas = igrads * dsigm
+        ___, ograds = super(Sigmoid, self).bprop(h=None, igrads=deltas)
         return deltas, ograds
 
-    def bprop_cost(self, h, igrads, cost):
-        """
-        Implements a backward propagation in case the layer directly
-        deals with the optimised cost (i.e. the top layer)
-        By default, method should implement a bprop for default cost, that is
-        the one that is natural to the layer's output, i.e.:
-        here we implement linear -> mse scenario
-        :param h: it's an activation produced in forward pass
-        :param igrads, error signal (or gradient) flowing to the layer, note,
-               this in general case does not corresponds to 'deltas' used to update
-               the layer's parameters, to get deltas ones need to multiply it with
-               the dh^i/da^i derivative
-        :param cost, mlp.costs.Cost instance defining the used cost
-        :return: a tuple (deltas, ograds) where:
-               deltas = igrads * dh^i/da^i
-               ograds = deltas \times da^i/dx^i
-        """
-
-        if cost is None or cost.get_name() == 'ce':
-        
-            deltas, ograds = self.fprop(h, igrads)
-            return deltas, ograds
+    def cost_bprop(self, h, igrads, cost):
+        if cost is None or cost.get_name() == 'bce':
+            return super(Sigmoid, self).bprop(h=h, igrads=igrads)
         else:
             raise NotImplementedError('Sigmoid.bprop_cost method not implemented '
                                       'for the %s cost' % cost.get_name())
+
+    def get_name(self):
+        return 'sigmoid'
+
+
+class Softmax(Linear):
+
+    def __init__(self,idim, odim,
+                 rng=None,
+                 irange=0.1):
+
+        super(Softmax, self).__init__(idim,
+                                      odim,
+                                      rng=rng,
+                                      irange=irange)
+    
+    def fprop(self, inputs):
+
+        # compute the linear outputs
+        a = super(Softmax, self).fprop(inputs)
+        # apply numerical stabilisation by subtracting max 
+        # from each row (not required for the coursework)
+        # then compute exponent
+        assert a.ndim in [1, 2], (
+            "Expected the linear activation in Softmax layer to be either "
+            "vector or matrix, got %ith dimensional tensor" % a.ndim
+        )
+        axis = a.ndim - 1
+        exp_a = numpy.exp(a - numpy.max(a, axis=axis, keepdims=True))
+        # finally, normalise by the sum within each example
+        y = exp_a/numpy.sum(exp_a, axis=axis, keepdims=True)
+
+        return y
+
+    def bprop(self, h, igrads):
+        raise NotImplementedError('Softmax.bprop not implemented for hidden layer.')
+
+    def bprop_cost(self, h, igrads, cost):
+
+        if cost is None or cost.get_name() == 'ce':
+            return super(Softmax, self).bprop(h=h, igrads=igrads)
+        else:
+            raise NotImplementedError('Softmax.bprop_cost method not implemented '
+                                      'for %s cost' % cost.get_name())
+
+    def get_name(self):
+        return 'softmax'
 
