@@ -405,7 +405,7 @@ class Sigmoid(Linear):
         ___, ograds = super(Sigmoid, self).bprop(h=None, igrads=deltas)
         return deltas, ograds
 
-    def cost_bprop(self, h, igrads, cost):
+    def bprop_cost(self, h, igrads, cost):
         if cost is None or cost.get_name() == 'bce':
             return super(Sigmoid, self).bprop(h=h, igrads=igrads)
         else:
@@ -480,7 +480,7 @@ class Relu(Linear):
         ___, ograds = super(Relu, self).bprop(h=None, igrads=deltas)
         return deltas, ograds
 
-    def cost_bprop(self, h, igrads, cost):
+    def bprop_cost(self, h, igrads, cost):
         raise NotImplementedError('Relu.bprop_cost method not implemented '
                                       'for the %s cost' % cost.get_name())
 
@@ -507,7 +507,7 @@ class Tanh(Linear):
         ___, ograds = super(Tanh, self).bprop(h=None, igrads=deltas)
         return deltas, ograds
 
-    def cost_bprop(self, h, igrads, cost):
+    def bprop_cost(self, h, igrads, cost):
         raise NotImplementedError('Tanh.bprop_cost method not implemented '
                                       'for the %s cost' % cost.get_name())
 
@@ -553,7 +553,7 @@ class Maxout(Linear):
         ___, ograds = super(Maxout, self).bprop(h=None, igrads=deltas)
         return deltas, ograds
 
-    def cost_bprop(self, h, igrads, cost):
+    def bprop_cost(self, h, igrads, cost):
         raise NotImplementedError('Maxout.bprop_cost method not implemented '
                                       'for the %s cost' % cost.get_name())
 
